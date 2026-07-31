@@ -15,6 +15,7 @@ analysis this implementation is based on.
 coverage_intelligence/
   config.py       tunable thresholds (baseline window, detection thresholds, CHS weights, ...)
   synthetic.py     large-scale synthetic UE Report / cell RF config / Alarm generator
+  loader_mentor.py  parses VNPT's real Mentor POWER/DISTANCE export into the same UE Report shape
   features.py      Step 1-2: Coverage Feature Extraction -> Coverage Fingerprint
   baseline.py       Step 3: rolling baseline (mean/median/MAD) + peer-group fallback
   detection.py       Step 4: rule-based + Spatial Similarity Index + EWMA/CUSUM/STL-lite, ensemble voting
@@ -22,7 +23,8 @@ coverage_intelligence/
   health_score.py        Step 6: Coverage Health Score + hierarchy aggregation
   pipeline.py               orchestration (Steps 1-6) + FeedbackStore (Step 7, human-in-the-loop)
   dashboard.py                self-contained HTML dashboard (Plotly)
-scripts/run_demo.py    generate data, run the pipeline, write alerts.csv + dashboard.html
+scripts/run_demo.py    synthetic data end-to-end: generate, run the pipeline, write alerts.csv + dashboard.html
+scripts/run_real_data_demo.py  real Mentor export -> Coverage Fingerprint (steps 1-2 only, see below)
 tests/                  pytest: feature/baseline sanity checks + end-to-end scenario detection
 ```
 
@@ -61,25 +63,45 @@ about production accuracy - see "Where a real deployment differs" below.
 
 ## Where a real deployment differs from this demo (and about that "large sample data" question)
 
-I don't have access to VNPT's Mentor database, RIMS or nFM, so there is no
-real UE Report data I can pull from here. Two ways to close that gap:
+I don't have direct access to VNPT's Mentor database, RIMS or nFM, so there
+is no way for me to pull real data on my own. Two ways to close that gap,
+both now wired up:
 
-1. **You provide a real (or real-shaped) sample.** Point me at a UE Report
-   export (CSV/Parquet) with columns compatible with
-   `synthetic.generate_ue_reports`'s output (`cell_id, site_id, date,
-   distance_m, bearing_deg, rsrp_dbm` - or raw lat/lon + cell coordinates,
-   which `features.py` can be adapted to project into distance/bearing), plus
-   a cell RF/installation table and, optionally, an Alarm export. The
-   pipeline (`CoverageIntelligencePipeline.run`) takes plain pandas
-   DataFrames, so swapping the synthetic generator for a real loader is a
-   one-function change, not a rewrite.
+1. **You provide a real (or real-shaped) sample.** This has already been
+   validated: `coverage_intelligence/loader_mentor.py` parses VNPT's actual
+   raw Mentor "power/distance" export format (tab-separated event log with
+   `POWER` records carrying real RSRP - `EC_0` - and UE position, and
+   `DISTANCE` records carrying real distance-to-site) into the UE-Report
+   shape `features.compute_fingerprints` expects. Run it with:
+   ```bash
+   python scripts/run_real_data_demo.py path/to/raw_mentor.txt --out out_real/
+   ```
+   On the sample provided (~27k joined UE Report rows / 451 real cells / one
+   hour in Ho Chi Minh City), this produces genuine Coverage Fingerprints -
+   real RSRP distributions, real effective radius per cell - directly from
+   VNPT data. Two caveats surfaced by that real sample, both expected and
+   documented in the loader's docstring:
+   - The export carries the **UE's** position but not each **site's**, so
+     azimuth-relative-to-site (needed for the Direction/Ring x Direction
+     features) isn't directly available. The loader approximates site
+     position from each cell's closest-in samples
+     (`estimate_site_positions`) - this recovered a usable bearing for
+     ~127/451 cells in the sample (the rest still contribute fully to the
+     Signal/Distance/Ring features, which don't need bearing). A real site
+     coordinate table (e.g. from RIMS) would make this exact instead of
+     estimated.
+   - **A single export is one snapshot in time.** Baseline/Detection/RCA/CHS
+     (steps 3-6) need 7-30+ days of history per the proposal - one hourly
+     export only exercises steps 1-2 (Coverage Fingerprint extraction). To
+     run the full pipeline on real data, repeat the same export daily and
+     concatenate the parsed UE Report tables before calling
+     `CoverageIntelligencePipeline.run()`.
 
-2. **Scale via the synthetic generator itself.** `synthetic.py` is fully
-   vectorized (`np.repeat` expansion, no per-sample Python loop), so it
-   already produces multi-million-row datasets in seconds - useful for load
-   testing the pipeline (`--n-cells 500 --n-days 30
-   --samples-per-cell-day 3000` is ~45M rows) independent of whether real
-   data is available.
+2. **Scale via the synthetic generator.** `synthetic.py` is fully vectorized
+   (`np.repeat` expansion, no per-sample Python loop), so it already
+   produces multi-million-row datasets in seconds - useful for load testing
+   the pipeline (`--n-cells 500 --n-days 30 --samples-per-cell-day 3000` is
+   ~45M rows) independent of whether real data is available.
 
 For production, the proposal's own architecture (section 3.2.1 / 3.3.4) is
 the intended integration path and matches how this code is structured to

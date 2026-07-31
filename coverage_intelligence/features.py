@@ -42,20 +42,30 @@ class FingerprintTable:
 
 
 def _bin_ue_reports(ue: pd.DataFrame, cfg: CFSCDConfig) -> pd.DataFrame:
+    """Bin each UE Report sample into ring/direction/grid buckets.
+
+    ``bearing_deg`` (and anything derived from it - direction, grid x/y) may
+    be missing for some rows: real Mentor exports carry the UE's absolute
+    position but not necessarily each site's, so bearing-from-site can only
+    be computed where a site position is known (see ``loader_mentor.py``).
+    Those rows still contribute to the Signal/Distance/Ring features (which
+    only need ``distance_m``); nullable Int64 dtype keeps NaN bearing rows
+    as NA bin keys, which groupby then drops rather than crashing on cast.
+    """
     ue = ue.copy()
     ring_bins = list(cfg.ring_edges_m) + [np.inf]
     ue["ring"] = pd.cut(
         ue["distance_m"], bins=ring_bins, labels=range(len(ring_bins) - 1), right=False
-    ).astype(int)
+    ).astype("Int64")
 
     sector_width = 360.0 / cfg.n_direction_sectors
-    ue["direction"] = ((ue["bearing_deg"] // sector_width).astype(int)) % cfg.n_direction_sectors
+    ue["direction"] = ((ue["bearing_deg"] // sector_width) % cfg.n_direction_sectors).astype("Int64")
 
     x_m = ue["distance_m"] * np.sin(np.radians(ue["bearing_deg"]))
     y_m = ue["distance_m"] * np.cos(np.radians(ue["bearing_deg"]))
     n_bins = int(round(2 * cfg.grid_half_extent_m / cfg.grid_cell_m))
-    gx = ((x_m + cfg.grid_half_extent_m) // cfg.grid_cell_m).astype(int).clip(0, n_bins - 1)
-    gy = ((y_m + cfg.grid_half_extent_m) // cfg.grid_cell_m).astype(int).clip(0, n_bins - 1)
+    gx = ((x_m + cfg.grid_half_extent_m) // cfg.grid_cell_m).clip(0, n_bins - 1).astype("Int64")
+    gy = ((y_m + cfg.grid_half_extent_m) // cfg.grid_cell_m).clip(0, n_bins - 1).astype("Int64")
     ue["grid_x"], ue["grid_y"] = gx, gy
     ue["grid_id"] = gx * n_bins + gy
     ue.attrs["n_grid_bins_per_axis"] = n_bins
@@ -102,7 +112,7 @@ def compute_fingerprints(ue_reports: pd.DataFrame, cfg: CFSCDConfig) -> Fingerpr
     direction = _mean_density_table(ue, "direction", n_dirs, "dir")
     grid = _mean_density_table(ue, "grid_id", n_grid, "grid")
 
-    ue["rd"] = ue["ring"].astype(int) * n_dirs + ue["direction"].astype(int)
+    ue["rd"] = ue["ring"] * n_dirs + ue["direction"]  # both Int64; NA direction -> NA rd, dropped by groupby
     ring_direction = _mean_density_table(ue, "rd", n_rings * n_dirs, "rd")
 
     return FingerprintTable(
