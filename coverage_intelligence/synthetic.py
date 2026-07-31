@@ -9,9 +9,8 @@ at whatever scale is needed (hundreds to millions of rows) using a simple
 log-distance propagation model with antenna radiation patterns, so the rest
 of the pipeline can be built, tested and demonstrated end-to-end.
 
-Five named anomaly scenarios mirror the "kịch bản ứng dụng tiêu biểu" table
-in the proposal: OUTAGE, SHADOWING, TILT_POWER_DRIFT, AZIMUTH_DRIFT,
-OVERSHOOT.
+Five named anomaly scenarios cover the algorithm's typical failure modes:
+OUTAGE, SHADOWING, TILT_POWER_DRIFT, AZIMUTH_DRIFT, OVERSHOOT.
 """
 
 from __future__ import annotations
@@ -65,10 +64,9 @@ def make_cell_topology(
     """Create a synthetic multi-vendor, multi-band cell topology.
 
     Sites are scattered over a square area; each site carries 1-3 sectors
-    (cells) at randomized azimuths. Returned columns mirror the RF/install
-    attributes named in the proposal (Cell ID, Site ID, band, PCI, ARFCN,
-    Azimuth, Mechanical Tilt, Electrical Tilt, antenna height, tx power,
-    coordinates).
+    (cells) at randomized azimuths. Returned columns mirror standard RF/
+    install attributes (Cell ID, Site ID, band, PCI, ARFCN, Azimuth,
+    Mechanical Tilt, Electrical Tilt, antenna height, tx power, coordinates).
     """
     if n_sites is None:
         n_sites = max(1, n_cells // cells_per_site)

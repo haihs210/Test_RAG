@@ -1,7 +1,7 @@
 """Step 1-2 of CF-SCD: Coverage Feature Extraction + Coverage Fingerprint build.
 
 Turns raw UE Report rows (cell_id, date, distance_m, bearing_deg, rsrp_dbm)
-into the five feature groups the proposal defines:
+into the five feature groups the algorithm defines:
 
   * Signal Feature      - RSRP distribution (mean/median/percentiles, good/poor share)
   * Distance Feature     - effective radius / reach
@@ -11,7 +11,7 @@ into the five feature groups the proposal defines:
 
 Ring x Direction is additionally kept as a 2D matrix (not just the two 1D
 marginals) because that is the "Coverage Fingerprint map" the Spatial
-Similarity Index compares cycle-to-cycle (see Hinh 4 in the proposal).
+Similarity Index compares cycle-to-cycle.
 """
 
 from __future__ import annotations

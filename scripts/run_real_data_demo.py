@@ -7,7 +7,7 @@ there isn't yet a multi-day history to build a Baseline / run Spatial
 Change Detection / Root Cause Analysis / Coverage Health Score (steps 3-6) -
 those need the same export repeated daily over 1-4+ weeks. This script
 demonstrates what step 1-2 (Coverage Fingerprint) looks like on genuine
-VNPT data: real RSRP, real distances, real UE positions.
+network data: real RSRP, real distances, real UE positions.
 
 With ``--cell-config``, every measured cell in the POWER records is used -
 not just the serving cell's EC_0, but every candidate/neighbor cell's

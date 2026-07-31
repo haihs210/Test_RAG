@@ -127,8 +127,7 @@ class FeedbackStore:
     Confirmed true positives feed back into the next run's baseline (their
     dates are excluded from the historical window so the incident doesn't
     pollute future baselines); confirmed false positives are the training
-    signal the proposal describes for eventually moving the rule library
-    towards a supervised model.
+    signal for eventually moving the rule library towards a supervised model.
     """
 
     records: List[dict] = field(default_factory=list)

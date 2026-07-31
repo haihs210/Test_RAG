@@ -2,12 +2,9 @@
 
 Per-cell rolling baseline (mean / median / MAD) over a 7-30 day trailing
 window (``cfg.baseline_window_days``), with confirmed-incident days and
-statistical outlier days excluded, as described in the proposal:
-
-    "CF-SCD xay dung Baseline dong dua tren du lieu lich su cua chinh tung
-    cell... Cac ngay xay ra su co da xac nhan hoac gia tri ngoai lai duoc
-    loai khoi tap Baseline. He thong su dung dong thoi trung binh, trung vi
-    va dac biet la Median Absolute Deviation (MAD)."
+statistical outlier days excluded: the baseline is built from each cell's
+own trailing history, excluding confirmed-incident days and outliers, using
+mean, median and - notably - Median Absolute Deviation (MAD) together.
 
 The Coverage Fingerprint table is already one row per (cell, day) - a few
 thousand to tens of thousands of rows even when the raw UE Report behind it
@@ -119,8 +116,8 @@ def peer_group_baseline(
 ) -> BaselineResult:
     """Cross-sectional baseline built from peer cells (same band/tech) on the
     same day, used for cells whose own history is too short (e.g. newly
-    commissioned sites) - see the "Overshoot" scenario in the proposal:
-    "cho phep danh gia chinh xac ngay ca voi tram moi chua du du lieu lich su".
+    commissioned sites) - see the "Overshoot" scenario, which needs an
+    accurate evaluation even for a new site with no history of its own yet.
     """
     df = wide.join(cell_to_peer_group.rename("peer_group"))
     median_out = pd.DataFrame(index=wide.index, columns=wide.columns, dtype=float)

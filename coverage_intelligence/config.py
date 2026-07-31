@@ -1,8 +1,9 @@
 """Tunable parameters for the CF-SCD pipeline.
 
-Every threshold below is a starting point taken from the ranges the proposal
-mentions (e.g. a 7-30 day baseline window). They are meant to be recalibrated
-per market with the Human-in-the-loop feedback described in step 7.
+Every threshold below is a starting point taken from the algorithm's own
+recommended ranges (e.g. a 7-30 day baseline window). They are meant to be
+recalibrated per market with the Human-in-the-loop feedback described in
+step 7.
 """
 
 from dataclasses import dataclass, field
@@ -38,7 +39,7 @@ class CFSCDConfig:
     rsrp_poor_dbm: float = -110.0
 
     # --- Baseline construction (Step 3) ---
-    baseline_window_days: int = 14  # within the 7-30 day range from the proposal
+    baseline_window_days: int = 14  # within the algorithm's recommended 7-30 day range
     min_baseline_days: int = 5
     mad_scale: float = 1.4826  # scales MAD to be comparable to a std-dev
 

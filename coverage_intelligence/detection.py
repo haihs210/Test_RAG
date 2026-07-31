@@ -1,8 +1,8 @@
 """Step 4 of CF-SCD: Spatial Change Detection.
 
 Three complementary detectors, combined by Ensemble Voting so an alert only
-fires when several methods agree (this is what keeps the false-alarm rate
-down, per the proposal):
+fires when several methods agree - this is what keeps the false-alarm rate
+down:
 
   * Rule-based Detection      - large, obvious level/reach/volume shifts
   * Spatial Similarity Index  - shape change of the Ring x Direction map
@@ -33,8 +33,8 @@ class EffectiveBaseline:
 def merge_baselines(own: BaselineResult, peer: BaselineResult) -> EffectiveBaseline:
     """Fall back to peer-group (same band/tech) baseline when a cell's own
     trailing history is too short - e.g. a newly commissioned cell in the
-    Overshoot scenario, per the proposal's "danh gia chinh xac ngay ca voi
-    tram moi chua co du du lieu lich su".
+    Overshoot scenario, which needs an accurate evaluation even without
+    history of its own yet.
     """
     use_own = own.is_valid.reindex(own.median.index, fill_value=False)
     median = own.median.where(use_own, peer.median)

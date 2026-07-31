@@ -1,9 +1,9 @@
 """Builds the self-contained HTML "Visualization & Operation Layer" dashboard.
 
-Mirrors what the proposal describes: Coverage Health Score by hierarchy
-level, alert list with recommended actions, and a Coverage Fingerprint
-map (Ring x Direction) showing an anomalous cell before/after the change -
-e.g. the antenna-misalignment example in Hinh 4 of the proposal.
+Shows Coverage Health Score by hierarchy level, an alert list with
+recommended actions, and a Coverage Fingerprint map (Ring x Direction)
+showing an anomalous cell before/after the change - e.g. a localized
+antenna-misalignment pattern.
 """
 
 from __future__ import annotations

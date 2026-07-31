@@ -1,9 +1,8 @@
 """Three-panel visualization for one cell's real Coverage Fingerprint:
 
   * Panel 1 - Ring x Direction heatmap (mean RSRP per bin), same
-    representation used elsewhere in the pipeline (e.g. Hinh 4 in the
-    proposal, ``dashboard.py``'s before/after view). Hover shows each bin's
-    sample count and confidence.
+    representation used elsewhere in the pipeline (``dashboard.py``'s
+    before/after view). Hover shows each bin's sample count and confidence.
   * Panel 2 - "coverage rose": the same Ring x Direction data redrawn as
     real angular wedges (``go.Barpolar``) radiating from the site, so the
     shape actually looks like antenna sector coverage instead of an
@@ -129,7 +128,7 @@ def _add_coverage_rose(fig: go.Figure, rd_row: pd.Series, cfg: CFSCDConfig, row:
 
 
 def build_fingerprint_report(fp: FingerprintTable, cell_id: str, cfg: CFSCDConfig) -> str:
-    """Render every Coverage Fingerprint feature group the proposal defines
+    """Render every Coverage Fingerprint feature group the algorithm defines
     - Signal, Distance, Ring, Direction, Grid - as one readable text report
     for a single cell, rather than just the scalar (Signal+Distance) table
     the top-N printout already shows.

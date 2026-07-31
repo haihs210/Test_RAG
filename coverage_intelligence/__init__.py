@@ -1,8 +1,7 @@
 """Coverage Intelligence Platform - reference implementation of the CF-SCD algorithm.
 
-CF-SCD = Coverage Fingerprint - Spatial Change Detection, as described in the
-"He thong thong minh ung dung Coverage Fingerprint va Tri tue nhan tao trong
-giam sat bien dong vung phu" proposal.
+CF-SCD = Coverage Fingerprint - Spatial Change Detection, an algorithm for
+detecting and diagnosing radio-coverage anomalies from UE Report data.
 
 This package turns UE Report + cell RF/installation data (+ Alarm) into:
   1. Coverage Fingerprints (per cell, per observation cycle)

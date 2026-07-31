@@ -1,6 +1,6 @@
 """End-to-end check: does the pipeline detect (and mostly correctly explain)
-each of the five anomaly scenarios from the proposal, without flooding
-unrelated cells with false alarms once the baseline has warmed up?
+each of the five named anomaly scenarios, without flooding unrelated cells
+with false alarms once the baseline has warmed up?
 """
 
 import warnings

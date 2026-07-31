@@ -5,12 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this repo is
 
 A reference implementation of **CF-SCD (Coverage Fingerprint - Spatial
-Change Detection)**, the algorithm described in the proposal
-`HKVTKTM_Hien_ke_VPS_final.docx` for turning VNPT's UE Report data (via
-Mentor) into automatic radio-coverage anomaly detection, root-cause
-analysis, and a Coverage Health Score. See `docs/algorithm_analysis.md`
-(Vietnamese) for the algorithm write-up this code is based on, and
-`README.md` for the full usage/data-ingestion story.
+Change Detection)**, an algorithm for turning UE Report data (via a Mentor
+coverage database) into automatic radio-coverage anomaly detection,
+root-cause analysis, and a Coverage Health Score. See
+`docs/algorithm_analysis.md` (Vietnamese) for the algorithm write-up this
+code is based on, and `README.md` for the full usage/data-ingestion story.
 
 ## Commands
 
@@ -53,8 +52,8 @@ independent producers build that shape:
   OVERSHOOT) used by `scripts/run_demo.py` and `tests/test_pipeline.py` to
   exercise the full 7-step pipeline, since it can fabricate the 7-30 days
   of history steps 3-6 need.
-- **Real** (`loader_mentor.py` + `loader_cell_config.py`): parses VNPT's
-  actual raw exports. `load_mentor_export` gets serving-cell-only rows with
+- **Real** (`loader_mentor.py` + `loader_cell_config.py`): parses actual raw
+  network exports. `load_mentor_export` gets serving-cell-only rows with
   measured distance; `load_mentor_power_measurements` +
   `loader_cell_config.attach_geometry` additionally pulls every
   candidate/neighbor cell's `EC_1..EC_11` reading (not just the serving

@@ -1,9 +1,10 @@
 """Loader for real Mentor "power/distance" export files.
 
-This parses the raw event-log export VNPT Mentor actually produces (tab-
-separated, one row per measurement event within a call: POWER, DISTANCE,
-CQI, PUSCH SINR, THROUGHPUT, ...) into the UE-Report-shaped table the rest
-of the pipeline (``features.compute_fingerprints`` etc.) expects.
+This parses the raw event-log export a Mentor coverage database actually
+produces (tab-separated, one row per measurement event within a call:
+POWER, DISTANCE, CQI, PUSCH SINR, THROUGHPUT, ...) into the UE-Report-shaped
+table the rest of the pipeline (``features.compute_fingerprints`` etc.)
+expects.
 
 Two record types matter for the Coverage Fingerprint:
 

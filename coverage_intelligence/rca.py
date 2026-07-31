@@ -4,14 +4,15 @@ For every anomalous (cell, date) pair, this module:
   1. Looks at how neighboring cells behaved the same day (localized vs
      wide-area, e.g. a power-grid or network-change event).
   2. Scores the fingerprint change pattern against a small expert rule
-     library mirroring the "kich ban ung dung tieu bieu" table in the
-     proposal (Outage, Shadowing, Tilt/Power drift, Azimuth drift, Overshoot).
+     library covering the algorithm's named failure-mode scenarios
+     (Outage, Shadowing, Tilt/Power drift, Azimuth drift, Overshoot).
   3. Boosts the matching cause when a corroborating Alarm exists.
 
-The rule library is intentionally a plain Python table (see
-``EXPERT_RULES``) so it is the artifact that gets edited as Step 7's
-Human-in-the-loop feedback accumulates - exactly the "hieu chinh tap luat
-chuyen gia" the proposal describes, without touching the detection code.
+The rule library is intentionally plain Python (see ``_score_patterns``,
+``RECOMMENDATIONS``, ``ALARM_BOOST``) so it is the artifact that gets
+edited as Step 7's Human-in-the-loop feedback accumulates - tuning the
+expert rule set as verified outcomes come in, without touching the
+detection code.
 """
 
 from __future__ import annotations
