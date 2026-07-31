@@ -16,6 +16,7 @@ coverage_intelligence/
   config.py       tunable thresholds (baseline window, detection thresholds, CHS weights, ...)
   synthetic.py     large-scale synthetic UE Report / cell RF config / Alarm generator
   loader_mentor.py  parses VNPT's real Mentor POWER/DISTANCE export into the same UE Report shape
+  loader_cell_config.py  parses a real cell/site RF+installation export (lat/lon, azimuth, tilt) for exact bearing
   features.py      Step 1-2: Coverage Feature Extraction -> Coverage Fingerprint
   baseline.py       Step 3: rolling baseline (mean/median/MAD) + peer-group fallback
   detection.py       Step 4: rule-based + Spatial Similarity Index + EWMA/CUSUM/STL-lite, ensemble voting
@@ -68,34 +69,42 @@ is no way for me to pull real data on my own. Two ways to close that gap,
 both now wired up:
 
 1. **You provide a real (or real-shaped) sample.** This has already been
-   validated: `coverage_intelligence/loader_mentor.py` parses VNPT's actual
-   raw Mentor "power/distance" export format (tab-separated event log with
-   `POWER` records carrying real RSRP - `EC_0` - and UE position, and
-   `DISTANCE` records carrying real distance-to-site) into the UE-Report
-   shape `features.compute_fingerprints` expects. Run it with:
+   validated on two real VNPT exports:
+   - `coverage_intelligence/loader_mentor.py` parses the raw Mentor
+     "power/distance" export (tab-separated event log with `POWER` records
+     carrying real RSRP - `EC_0` - and UE position, and `DISTANCE` records
+     carrying real distance-to-site) into the UE-Report shape
+     `features.compute_fingerprints` expects.
+   - `coverage_intelligence/loader_cell_config.py` parses a real cell/site
+     RF+installation export (Latitude/Longitude, azimuth, mechanical/
+     electrical tilt, antenna height/gain, band, operational status - the
+     same attributes the proposal names for the Data Acquisition Layer) and
+     joins it onto the UE Report table to compute **exact** bearing-from-
+     site instead of an estimate.
+
+   Run both together with:
    ```bash
-   python scripts/run_real_data_demo.py path/to/raw_mentor.txt --out out_real/
+   python scripts/run_real_data_demo.py path/to/raw_mentor.txt \
+       --cell-config path/to/cell_config.xlsx --out out_real/
    ```
-   On the sample provided (~27k joined UE Report rows / 451 real cells / one
-   hour in Ho Chi Minh City), this produces genuine Coverage Fingerprints -
-   real RSRP distributions, real effective radius per cell - directly from
-   VNPT data. Two caveats surfaced by that real sample, both expected and
-   documented in the loader's docstring:
-   - The export carries the **UE's** position but not each **site's**, so
-     azimuth-relative-to-site (needed for the Direction/Ring x Direction
-     features) isn't directly available. The loader approximates site
-     position from each cell's closest-in samples
-     (`estimate_site_positions`) - this recovered a usable bearing for
-     ~127/451 cells in the sample (the rest still contribute fully to the
-     Signal/Distance/Ring features, which don't need bearing). A real site
-     coordinate table (e.g. from RIMS) would make this exact instead of
-     estimated.
-   - **A single export is one snapshot in time.** Baseline/Detection/RCA/CHS
-     (steps 3-6) need 7-30+ days of history per the proposal - one hourly
-     export only exercises steps 1-2 (Coverage Fingerprint extraction). To
-     run the full pipeline on real data, repeat the same export daily and
-     concatenate the parsed UE Report tables before calling
-     `CoverageIntelligencePipeline.run()`.
+   On the two samples provided (~27k joined UE Report rows / 451 real cells
+   over one hour in Ho Chi Minh City, plus a 1654-row cell config export),
+   305 of those 451 cells matched the config by exact cell name, recovering
+   a **real, exact** bearing for 23,901/27,271 samples (up from ~15,201
+   estimated without the config file); a closest-in-sample fallback
+   (`loader_mentor.estimate_site_positions`) covers cells missing from the
+   config, bringing total bearing coverage to 337/451 cells. This produces
+   genuine Coverage Fingerprints, including populated Ring x Direction maps,
+   directly from VNPT data (run without `--cell-config` to fall back to
+   estimation only).
+
+   One caveat remains, independent of which loader is used: **a single
+   export is one snapshot in time.** Baseline/Detection/RCA/CHS (steps 3-6)
+   need 7-30+ days of history per the proposal - a one-hour export only
+   exercises steps 1-2 (Coverage Fingerprint extraction). To run the full
+   pipeline on real data, repeat the same export daily and concatenate the
+   parsed UE Report tables before calling
+   `CoverageIntelligencePipeline.run()`.
 
 2. **Scale via the synthetic generator.** `synthetic.py` is fully vectorized
    (`np.repeat` expansion, no per-sample Python loop), so it already
