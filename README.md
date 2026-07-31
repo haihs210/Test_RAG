@@ -1,8 +1,7 @@
 # Coverage Intelligence Platform - CF-SCD reference implementation
 
 A working, testable implementation of the **CF-SCD (Coverage Fingerprint -
-Spatial Change Detection)** algorithm described in
-`HKVTKTM_Hien_ke_VPS_final.docx` - a proposal for turning VNPT's UE Report
+Spatial Change Detection)** algorithm - a proposal for turning UE Report
 data (via Mentor) into automatic radio-coverage anomaly detection, root-cause
 analysis and a Coverage Health Score.
 
@@ -15,7 +14,7 @@ analysis this implementation is based on.
 coverage_intelligence/
   config.py       tunable thresholds (baseline window, detection thresholds, CHS weights, ...)
   synthetic.py     large-scale synthetic UE Report / cell RF config / Alarm generator
-  loader_mentor.py  parses VNPT's real Mentor POWER/DISTANCE export into the same UE Report shape
+  loader_mentor.py  parses real Mentor POWER/DISTANCE export into the same UE Report shape
   loader_cell_config.py  parses a real cell/site RF+installation export (lat/lon, azimuth, tilt) for exact geometry
   real_data_viz.py  2-panel per-cell figure (binned heatmap + real sample points) for inspecting real-data extraction
   features.py      Step 1-2: Coverage Feature Extraction -> Coverage Fingerprint
@@ -65,12 +64,12 @@ about production accuracy - see "Where a real deployment differs" below.
 
 ## Where a real deployment differs from this demo (and about that "large sample data" question)
 
-I don't have direct access to VNPT's Mentor database, RIMS or nFM, so there
+I don't have direct access to  Mentor database, RIMS or nFM, so there
 is no way for me to pull real data on my own. Two ways to close that gap,
 both now wired up:
 
 1. **You provide a real (or real-shaped) sample.** This has already been
-   validated on two real VNPT exports:
+   validated on two real  exports:
    - `coverage_intelligence/loader_mentor.py` parses the raw Mentor
      "power/distance" export (tab-separated event log with `POWER` records
      carrying real RSRP - `EC_0` - and UE position, and `DISTANCE` records
@@ -162,7 +161,7 @@ receive data:
 
 - **UE Report**: periodic batch extract from the Mentor database (the
   proposal explicitly keeps this - CF-SCD is a layer *on top of* Mentor, not
-  a replacement). At VNPT's actual data volumes this lands on Hadoop/Spark;
+  a replacement). At actual data volumes this lands on Hadoop/Spark;
   `features.py`'s groupby/pivot logic is expressed in pandas here for
   readability but maps directly onto Spark's DataFrame API (same groupby +
   pivot operations) if/when raw UE Report no longer fits in memory on one
