@@ -27,6 +27,12 @@ class CFSCDConfig:
     grid_cell_m: float = 500.0
     grid_half_extent_m: float = 2500.0  # grid covers [-extent, +extent] on x/y
 
+    # Reliability weight per ring/direction/grid bin: confidence = count /
+    # (count + confidence_half_count), i.e. this many samples in a bin -> 0.5
+    # confidence. Lower = trust small sample counts more; higher = demand
+    # more samples before a bin's mean is treated as reliable.
+    confidence_half_count: float = 5.0
+
     # RSRP quality buckets used by the Signal Feature (dBm thresholds)
     rsrp_good_dbm: float = -95.0
     rsrp_poor_dbm: float = -110.0

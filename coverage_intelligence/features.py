@@ -27,10 +27,10 @@ from .config import CFSCDConfig
 @dataclass
 class FingerprintTable:
     scalar: pd.DataFrame          # index (cell_id, date) -> Signal + Distance features
-    ring: pd.DataFrame            # index (cell_id, date) -> ring_{i}_mean / ring_{i}_density
-    direction: pd.DataFrame       # index (cell_id, date) -> dir_{i}_mean / dir_{i}_density
-    grid: pd.DataFrame            # index (cell_id, date) -> grid_{i}_mean / grid_{i}_density
-    ring_direction: pd.DataFrame  # index (cell_id, date) -> rd_{r}_{d}_mean / rd_{r}_{d}_density
+    ring: pd.DataFrame            # index (cell_id, date) -> ring_{i}_mean / _density / _count / _confidence
+    direction: pd.DataFrame       # index (cell_id, date) -> dir_{i}_mean / _density / _count / _confidence
+    grid: pd.DataFrame            # index (cell_id, date) -> grid_{i}_mean / _density / _count / _confidence
+    ring_direction: pd.DataFrame  # index (cell_id, date) -> rd_{r*n_dirs+d}_mean / _density / _count / _confidence
     n_rings: int
     n_directions: int
     n_grid_x: int
@@ -72,21 +72,31 @@ def _bin_ue_reports(ue: pd.DataFrame, cfg: CFSCDConfig) -> pd.DataFrame:
     return ue
 
 
-def _mean_density_table(ue: pd.DataFrame, bin_col: str, n_bins: int, prefix: str) -> pd.DataFrame:
-    """Pivot (cell_id, date, bin) RSRP samples into wide mean/density columns."""
+def _mean_density_table(
+    ue: pd.DataFrame, bin_col: str, n_bins: int, prefix: str, confidence_half_count: float
+) -> pd.DataFrame:
+    """Pivot (cell_id, date, bin) RSRP samples into wide mean/density/count/confidence columns.
+
+    ``confidence`` is a smooth reliability weight in (0, 1], ``count / (count
+    + confidence_half_count)`` - it is 0.5 at ``confidence_half_count``
+    samples and approaches 1 as sample count grows, so a bin's mean isn't
+    trusted the same regardless of how many reports built it (a ring/
+    direction/grid cell with 1-2 samples is far noisier than one with 50).
+    """
     g = ue.groupby(["cell_id", "date", bin_col], observed=True)["rsrp_dbm"]
     stats = g.agg(mean="mean", count="size").reset_index()
     totals = stats.groupby(["cell_id", "date"])["count"].transform("sum")
     stats["density"] = stats["count"] / totals
+    stats["confidence"] = stats["count"] / (stats["count"] + confidence_half_count)
 
-    mean_wide = stats.pivot_table(index=["cell_id", "date"], columns=bin_col, values="mean")
-    dens_wide = stats.pivot_table(index=["cell_id", "date"], columns=bin_col, values="density", fill_value=0.0)
+    wide_tables = {}
+    for metric, fill in [("mean", np.nan), ("density", 0.0), ("count", 0), ("confidence", 0.0)]:
+        wide = stats.pivot_table(index=["cell_id", "date"], columns=bin_col, values=metric, fill_value=fill)
+        wide = wide.reindex(columns=range(n_bins), fill_value=fill)
+        wide.columns = [f"{prefix}_{i}_{metric}" for i in wide.columns]
+        wide_tables[metric] = wide
 
-    mean_wide = mean_wide.reindex(columns=range(n_bins))
-    dens_wide = dens_wide.reindex(columns=range(n_bins), fill_value=0.0)
-    mean_wide.columns = [f"{prefix}_{i}_mean" for i in mean_wide.columns]
-    dens_wide.columns = [f"{prefix}_{i}_density" for i in dens_wide.columns]
-    return mean_wide.join(dens_wide)
+    return wide_tables["mean"].join([wide_tables["density"], wide_tables["count"], wide_tables["confidence"]])
 
 
 def compute_fingerprints(ue_reports: pd.DataFrame, cfg: CFSCDConfig) -> FingerprintTable:
@@ -108,12 +118,13 @@ def compute_fingerprints(ue_reports: pd.DataFrame, cfg: CFSCDConfig) -> Fingerpr
         dist_p90=("distance_m", lambda s: np.percentile(s, 90)),  # effective radius
     )
 
-    ring = _mean_density_table(ue, "ring", n_rings, "ring")
-    direction = _mean_density_table(ue, "direction", n_dirs, "dir")
-    grid = _mean_density_table(ue, "grid_id", n_grid, "grid")
+    k = cfg.confidence_half_count
+    ring = _mean_density_table(ue, "ring", n_rings, "ring", k)
+    direction = _mean_density_table(ue, "direction", n_dirs, "dir", k)
+    grid = _mean_density_table(ue, "grid_id", n_grid, "grid", k)
 
     ue["rd"] = ue["ring"] * n_dirs + ue["direction"]  # both Int64; NA direction -> NA rd, dropped by groupby
-    ring_direction = _mean_density_table(ue, "rd", n_rings * n_dirs, "rd")
+    ring_direction = _mean_density_table(ue, "rd", n_rings * n_dirs, "rd", k)
 
     return FingerprintTable(
         scalar=scalar,

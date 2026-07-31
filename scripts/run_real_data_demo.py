@@ -40,7 +40,7 @@ from coverage_intelligence.loader_mentor import (  # noqa: E402
     load_mentor_export,
     load_mentor_power_measurements,
 )
-from coverage_intelligence.real_data_viz import fig_cell_fingerprint_and_points  # noqa: E402
+from coverage_intelligence.real_data_viz import build_fingerprint_report, fig_cell_coverage_report  # noqa: E402
 
 
 def main():
@@ -108,7 +108,8 @@ def main():
     print(fp.scalar.sort_values("sample_count", ascending=False)[cols].head(15).to_string())
 
     if "bearing_deg" in ue.columns and ue["bearing_deg"].notna().any():
-        print(f"\n[4/4] Rendering 2-panel Coverage Fingerprint heatmaps for the "
+        print(f"\n[4/4] Rendering Coverage Fingerprint reports (heatmap + coverage rose + real points, "
+              f"plus a full Signal/Distance/Ring/Direction/Grid feature report) for the "
               f"{args.n_example_cells} best-covered cells...")
         rd_dens_cols = [c for c in fp.ring_direction.columns if c.endswith("_density")]
         populated_bins = (fp.ring_direction[rd_dens_cols] > 0).sum(axis=1).sort_values(ascending=False)
@@ -116,11 +117,16 @@ def main():
         viz_dir = os.path.join(args.out, "cell_fingerprints")
         os.makedirs(viz_dir, exist_ok=True)
         for cell_id in example_cells:
-            fig = fig_cell_fingerprint_and_points(fp, ue, cell_id, cfg)
+            fig = fig_cell_coverage_report(fp, ue, cell_id, cfg)
             safe_name = cell_id.replace("/", "_")
             out_path = os.path.join(viz_dir, f"{safe_name}.html")
             fig.write_html(out_path)
-            print(f"      -> {out_path}")
+
+            report = build_fingerprint_report(fp, cell_id, cfg)
+            report_path = os.path.join(viz_dir, f"{safe_name}_features.txt")
+            with open(report_path, "w", encoding="utf-8") as f:
+                f.write(report)
+            print(f"      -> {out_path}  +  {report_path}")
     else:
         print("\n[4/4] No cells have a usable bearing - skipping per-cell heatmaps.")
 

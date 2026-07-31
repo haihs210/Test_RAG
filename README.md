@@ -112,14 +112,35 @@ both now wired up:
    uses ~50m rings (vs. the pipeline's tuned default in `config.py`, sized
    for the sample density a single day of serving-cell-only UE Report
    normally has) and still gets populated Ring x Direction bins for the
-   busier cells. For each of the best-covered cells it writes a 2-panel
-   HTML (`out_real/cell_fingerprints/<cell_id>.html`): the binned Ring x
-   Direction heatmap side-by-side with a scatter of the actual measurement
-   points (real coordinates, colored by real RSRP, with the site position
-   and configured azimuth overlaid) - useful for sanity-checking the
-   heatmap against what it was actually built from. Run without
-   `--cell-config` to fall back to serving-cell-only + estimated site
-   position instead.
+   busier cells.
+
+   Every ring/direction/grid bin also carries a **confidence weight**
+   (`features.py`: `count / (count + confidence_half_count)`, default
+   half-point at 5 samples) alongside its mean - a bin built from 2 samples
+   isn't as trustworthy as one built from 200, and this is now a number you
+   can read off, not just an implicit assumption. For each of the
+   best-covered cells, `run_real_data_demo.py` writes:
+   - `out_real/cell_fingerprints/<cell_id>.html` - a 3-panel figure: the
+     binned Ring x Direction heatmap (hover shows each bin's sample count
+     and confidence), a **coverage rose** (`real_data_viz.py`,
+     `go.Barpolar`) drawing the same data as real angular wedges radiating
+     from the site - i.e. actual sector/fan shapes with the vertex at the
+     site, matching how antenna coverage actually looks, rather than an
+     abstract ring-index x direction-index grid - with each wedge's opacity
+     scaled by its confidence so sparsely-sampled directions visibly fade
+     instead of looking as solid as well-sampled ones, and a scatter of the
+     real measurement points (real coordinates, colored by real RSRP, site
+     position and configured azimuth overlaid) for sanity-checking the
+     other two panels against what they were actually built from.
+   - `out_real/cell_fingerprints/<cell_id>_features.txt` - the full
+     Coverage Fingerprint feature report for that cell: Signal Feature
+     (mean/median/p10/p90/pct_good/pct_poor), Distance Feature (effective
+     radius), and every populated Ring/Direction/Grid bin with its RSRP,
+     sample count and confidence - all five feature groups the proposal
+     defines, not just the Signal+Distance scalar table.
+
+   Run without `--cell-config` to fall back to serving-cell-only +
+   estimated site position instead.
 
    One caveat remains, independent of which loader is used: **a single
    export is one snapshot in time.** Baseline/Detection/RCA/CHS (steps 3-6)
