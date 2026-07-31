@@ -1,9 +1,5 @@
 # Phan tich thuat toan CF-SCD (Coverage Fingerprint - Spatial Change Detection)
 
-Tai lieu nay phan tich thuat toan duoc mo ta trong
-`HKVTKTM_Hien_ke_VPS_final.docx` va doi chieu voi phan hien thuc trong
-`coverage_intelligence/`.
-
 ## 1. Ban chat thuat toan
 
 CF-SCD giai mot bai toan cu the: **phat hien bien dong vung phu cua tung
@@ -44,7 +40,7 @@ phai can bang voi mat do mau**. Trong qua trinh xay dung ban demo, voi
 ~150 mau/cell/ngay chia cho 5 vong x 12 huong = 60 o, phan lon o gan nhu
 rong -> chi so tuong tu khong gian (SSI) mat kha nang phan biet. Khi tang
 len ~1500 mau/cell/ngay (van thap hon nhieu so voi luu luong UE Report thuc
-te cua VNPT), SSI moi on dinh. Day la mot rang buoc thiet ke can nhac khi
+te ), SSI moi on dinh. Day la mot rang buoc thiet ke can nhac khi
 chon do phan giai luoi: **so o (rings x directions x grid) phai duoc dat theo
 mat do mau thuc te cua tung loai cell** (macro/nong thon it mau hon micro/do
 thi), khong nen dung mot do phan giai co dinh cho toan mang.
@@ -147,7 +143,7 @@ nhu tai lieu de cap o dinh huong dai han).
 Thuat toan CF-SCD trong tai lieu la mot thiet ke hop ly va co co so khoa
 hoc (phan tich du lieu khong gian + thong ke ben vung + ensemble + human-in-
 the-loop), phu hop de trien khai tung buoc tren ha tang du lieu Mentor san
-co cua VNPT. Cac diem can bo sung khi chuyen tu de xuat sang trien khai
+co cua . Cac diem can bo sung khi chuyen tu de xuat sang trien khai
 thuc te - va da duoc xu ly trong ban hien thuc kem theo - la: (1) hieu
 chuan do phan giai khong gian theo mat do mau thuc te, (2) hieu chuan nguong
 SSI/EWMA/CUSUM tren phan phoi du lieu that thay vi dat theo truc giac,
