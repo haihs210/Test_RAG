@@ -16,7 +16,8 @@ coverage_intelligence/
   config.py       tunable thresholds (baseline window, detection thresholds, CHS weights, ...)
   synthetic.py     large-scale synthetic UE Report / cell RF config / Alarm generator
   loader_mentor.py  parses VNPT's real Mentor POWER/DISTANCE export into the same UE Report shape
-  loader_cell_config.py  parses a real cell/site RF+installation export (lat/lon, azimuth, tilt) for exact bearing
+  loader_cell_config.py  parses a real cell/site RF+installation export (lat/lon, azimuth, tilt) for exact geometry
+  real_data_viz.py  2-panel per-cell figure (binned heatmap + real sample points) for inspecting real-data extraction
   features.py      Step 1-2: Coverage Feature Extraction -> Coverage Fingerprint
   baseline.py       Step 3: rolling baseline (mean/median/MAD) + peer-group fallback
   detection.py       Step 4: rule-based + Spatial Similarity Index + EWMA/CUSUM/STL-lite, ensemble voting
@@ -82,21 +83,43 @@ both now wired up:
      joins it onto the UE Report table to compute **exact** bearing-from-
      site instead of an estimate.
 
+   With `--cell-config`, the loader also stops throwing away ~70% of the
+   real signal-level data the export actually carries: each `POWER` row
+   reports up to 12 cells at once (the serving cell in `EC_0`, plus up to 11
+   candidate/neighbor cells in `EC_1..EC_11`), and every one of those is a
+   real "mức thu" (received signal level) sample of *that* cell at the UE's
+   position - not just the serving cell's own reading.
+   `loader_mentor.load_mentor_power_measurements` extracts all of them, and
+   `loader_cell_config.attach_geometry` computes `distance_m`/`bearing_deg`
+   for every row geometrically from real site coordinates (candidate cells
+   have no directly-logged `DISTANCE` record to fall back on, so this only
+   works for cells present in the config - rows for anything else are
+   dropped rather than guessed).
+
    Run both together with:
    ```bash
    python scripts/run_real_data_demo.py path/to/raw_mentor.txt \
        --cell-config path/to/cell_config.xlsx --out out_real/
    ```
-   On the two samples provided (~27k joined UE Report rows / 451 real cells
-   over one hour in Ho Chi Minh City, plus a 1654-row cell config export),
-   305 of those 451 cells matched the config by exact cell name, recovering
-   a **real, exact** bearing for 23,901/27,271 samples (up from ~15,201
-   estimated without the config file); a closest-in-sample fallback
-   (`loader_mentor.estimate_site_positions`) covers cells missing from the
-   config, bringing total bearing coverage to 337/451 cells. This produces
-   genuine Coverage Fingerprints, including populated Ring x Direction maps,
-   directly from VNPT data (run without `--cell-config` to fall back to
-   estimation only).
+   On the two samples provided (raw Mentor export + a 1654-row cell config
+   export, both covering one hour in Ho Chi Minh City), this recovers
+   **98,466 power measurements across 1,171 distinct cells** (serving +
+   candidate) from what a serving-cell-only reading would see as ~30k
+   measurements across ~450 cells; 69,181 of those measurements matched a
+   cell with known site coordinates (535 distinct cells), each with an
+   exact, geometrically-computed distance and bearing. That's enough
+   density to support much finer Ring resolution too - the real-data script
+   uses ~50m rings (vs. the pipeline's tuned default in `config.py`, sized
+   for the sample density a single day of serving-cell-only UE Report
+   normally has) and still gets populated Ring x Direction bins for the
+   busier cells. For each of the best-covered cells it writes a 2-panel
+   HTML (`out_real/cell_fingerprints/<cell_id>.html`): the binned Ring x
+   Direction heatmap side-by-side with a scatter of the actual measurement
+   points (real coordinates, colored by real RSRP, with the site position
+   and configured azimuth overlaid) - useful for sanity-checking the
+   heatmap against what it was actually built from. Run without
+   `--cell-config` to fall back to serving-cell-only + estimated site
+   position instead.
 
    One caveat remains, independent of which loader is used: **a single
    export is one snapshot in time.** Baseline/Detection/RCA/CHS (steps 3-6)

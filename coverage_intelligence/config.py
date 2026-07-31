@@ -12,6 +12,14 @@ from typing import List
 @dataclass
 class CFSCDConfig:
     # --- Coverage Fingerprint geometry (Step 1-2) ---
+    # This default is tuned for the daily-aggregate sample density the
+    # synthetic pipeline (and a production baseline/detection run) works
+    # with. Finer rings need proportionally more samples per bin to stay
+    # stable (see docs/algorithm_analysis.md) - scripts/run_real_data_demo.py
+    # uses a finer ~50m ring config instead, since including candidate/
+    # neighbor EC_i readings (not just the serving cell's EC_0) gives it
+    # much higher per-cell sample density than a single day of production
+    # UE Report normally would.
     ring_edges_m: List[float] = field(
         default_factory=lambda: [0, 200, 500, 1000, 2000, 5000]
     )

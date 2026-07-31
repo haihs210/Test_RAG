@@ -1,6 +1,7 @@
+import numpy as np
 import pandas as pd
 
-from coverage_intelligence.loader_cell_config import attach_bearing, attach_real_bearing, load_cell_config_xlsx
+from coverage_intelligence.loader_cell_config import attach_bearing, attach_geometry, attach_real_bearing, load_cell_config_xlsx
 
 
 def _write_cell_config_xlsx(path, rows):
@@ -66,3 +67,46 @@ def test_attach_bearing_falls_back_for_unmatched_cells(tmp_path):
     # CELL_B is absent from the config; the close-in sample (5m) anchors the
     # site-position estimate, so both rows should still get a bearing.
     assert out["bearing_deg"].notna().all()
+
+
+def test_attach_geometry_computes_distance_for_candidate_cells(tmp_path):
+    path = tmp_path / "cells.xlsx"
+    _write_cell_config_xlsx(
+        path,
+        [
+            ["CELL_A", 106.69014, 10.77215, None, 1, None, "L1800", 18, 24.0, 0.0, 6.0, 6.0, 0.0, "Onair"],
+            ["CELL_B", 106.69014, 10.77215, None, 1, None, "L1800", 18, 24.0, 0.0, 6.0, 6.0, 0.0, "Onair"],
+        ],
+    )
+    cfg = load_cell_config_xlsx(str(path))
+    site_x = cfg.iloc[0]["site_x_m"]
+    site_y = cfg.iloc[0]["site_y_m"]
+
+    # a serving-cell reading (CELL_A) plus a candidate-cell reading (CELL_B)
+    # from the same POWER row - both should get distance/bearing from CELL_B's
+    # own site, even though only CELL_A's distance would ever be directly
+    # logged in a real DISTANCE record.
+    measurements = pd.DataFrame(
+        {
+            "cell_id": ["CELL_A", "CELL_B"],
+            "ue_x_m": [site_x + 300.0, site_x + 300.0],
+            "ue_y_m": [site_y, site_y],
+            "active_status": ["ACTIVE", "CANDIDATE"],
+        }
+    )
+    out = attach_geometry(measurements, cfg)
+    assert len(out) == 2
+    assert np.allclose(out["distance_m"], 300.0)
+    assert np.allclose(out["bearing_deg"], 90.0)
+
+
+def test_attach_geometry_drops_cells_without_known_site(tmp_path):
+    path = tmp_path / "cells.xlsx"
+    _write_cell_config_xlsx(
+        path,
+        [["CELL_A", 106.69014, 10.77215, None, 1, None, "L1800", 18, 24.0, 0.0, 6.0, 6.0, 0.0, "Onair"]],
+    )
+    cfg = load_cell_config_xlsx(str(path))
+    measurements = pd.DataFrame({"cell_id": ["CELL_UNKNOWN"], "ue_x_m": [0.0], "ue_y_m": [0.0]})
+    out = attach_geometry(measurements, cfg)
+    assert out.empty

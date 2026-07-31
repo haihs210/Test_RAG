@@ -117,3 +117,29 @@ def attach_bearing(
 
     out.loc[missing_mask, "bearing_deg"] = est_bearing.to_numpy()
     return out
+
+
+def attach_geometry(measurements: pd.DataFrame, cell_config: pd.DataFrame) -> pd.DataFrame:
+    """Compute ``distance_m`` and ``bearing_deg`` geometrically (from real
+    site coordinates) for every row - serving or candidate/neighbor alike.
+
+    Unlike ``attach_bearing``, there is no closest-in-sample fallback here:
+    a candidate-cell reading has no directly-logged distance to fall back
+    on (the raw export's ``DISTANCE`` record only ever applies to the
+    currently-serving cell), so rows for cells absent from ``cell_config``
+    are dropped rather than approximated. Use
+    ``loader_mentor.load_mentor_power_measurements`` to build the
+    ``measurements`` input - it carries every measured cell (serving and
+    candidate/secondary) from the ``POWER`` records, not just the serving
+    cell's own ``EC_0``.
+    """
+    coords = cell_config.dropna(subset=["site_x_m", "site_y_m"])[
+        ["cell_id", "site_x_m", "site_y_m", "azimuth_deg", "mech_tilt_deg", "elec_tilt_deg", "band", "status"]
+    ].drop_duplicates(subset="cell_id")
+
+    out = measurements.merge(coords, on="cell_id", how="inner")
+    dx = out["ue_x_m"] - out["site_x_m"]
+    dy = out["ue_y_m"] - out["site_y_m"]
+    out["distance_m"] = np.hypot(dx, dy)
+    out["bearing_deg"] = np.degrees(np.arctan2(dx, dy)) % 360
+    return out

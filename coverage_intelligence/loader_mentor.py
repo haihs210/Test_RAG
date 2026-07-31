@@ -106,6 +106,59 @@ def load_mentor_export(path: str, max_join_gap_seconds: float = 30.0) -> pd.Data
     ].reset_index(drop=True)
 
 
+def load_mentor_power_measurements(path: str, max_slots: int = 12) -> pd.DataFrame:
+    """Every measured cell reading from POWER records - serving (slot 0,
+    ``ACTIVE_0 == "ACTIVE"``) *and* candidate/secondary cells (slots 1-11,
+    ``ACTIVE_i in {"CANDIDATE", "SECONDARY"}``).
+
+    Each POWER row is one UE measurement moment reporting up to 12 cells at
+    once; taking only the serving cell (as ``load_mentor_export`` does)
+    throws away the other ~10 real signal-level readings it logged in the
+    same row. Every slot shares the row's UE position and timestamp, so a
+    neighbor cell's ``EC_i`` is just as real a "mức thu" sample of that
+    cell as the serving cell's ``EC_0`` is of its own.
+
+    This does NOT include ``distance_m`` - only the serving cell's distance
+    is directly logged (via a separate ``DISTANCE`` record), and that
+    doesn't apply to candidate cells. Pair the result with
+    ``loader_cell_config.attach_geometry`` to compute distance/bearing for
+    every row from real site coordinates instead.
+    """
+    raw = pd.read_csv(path, sep="\t", low_memory=False)
+    power = raw[raw["Record Type"] == "POWER"]
+
+    parts = []
+    for slot in range(max_slots):
+        cell_col, ec_col, ecio_col, active_col = (
+            f"Sector Carrier_{slot}",
+            f"EC_{slot}",
+            f"EC\\IO_{slot}",
+            f"ACTIVE_{slot}",
+        )
+        if cell_col not in power.columns:
+            continue
+        sub = power[["Call Index", "Timestamp", "Technology", "X", "Y", cell_col, ec_col, ecio_col, active_col]].copy()
+        sub.columns = ["call_index", "timestamp", "technology", "ue_x_m", "ue_y_m", "cell_id", "rsrp_dbm", "ecio_db", "active_status"]
+        sub["rsrp_dbm"] = pd.to_numeric(sub["rsrp_dbm"], errors="coerce")
+        sub["ecio_db"] = pd.to_numeric(sub["ecio_db"], errors="coerce")
+        sub = sub.dropna(subset=["cell_id", "rsrp_dbm"])
+        sub["slot"] = slot
+        parts.append(sub)
+
+    if not parts:
+        return pd.DataFrame(
+            columns=["cell_id", "site_id", "date", "timestamp", "rsrp_dbm", "ecio_db", "ue_x_m", "ue_y_m", "technology", "active_status", "slot"]
+        )
+
+    out = pd.concat(parts, ignore_index=True)
+    out["site_id"] = out["cell_id"].map(_derive_site_id)
+    out["timestamp"] = pd.to_datetime(out["timestamp"], unit="ms")
+    out["date"] = out["timestamp"].dt.floor("D")
+    return out[
+        ["cell_id", "site_id", "date", "timestamp", "rsrp_dbm", "ecio_db", "ue_x_m", "ue_y_m", "technology", "active_status", "slot"]
+    ].reset_index(drop=True)
+
+
 def estimate_site_positions(ue_reports: pd.DataFrame, max_distance_m: float = 60.0) -> pd.DataFrame:
     """Approximate each cell's site position as the UE position of its
     closest-in observations (small ``distance_m``), since this export does
