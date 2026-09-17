@@ -41,6 +41,28 @@ def _ring_direction_matrix(row: pd.Series, cfg: CFSCDConfig, metric: str = "mean
     return mat
 
 
+def _grid_matrix(row: pd.Series, fp: FingerprintTable, metric: str = "mean") -> np.ndarray:
+    """Reshape one cell's flat grid_{i}_{metric} columns back into a 2D
+    (n_grid_x, n_grid_y) matrix, using the same grid_id = gx * n_grid_y + gy
+    encoding features.py._bin_ue_reports uses.
+    """
+    mat = np.full((fp.n_grid_x, fp.n_grid_y), np.nan)
+    n_grid = fp.n_grid_x * fp.n_grid_y
+    for i in range(n_grid):
+        col = f"grid_{i}_{metric}"
+        if col in row.index:
+            gx, gy = divmod(i, fp.n_grid_y)
+            mat[gx, gy] = row[col]
+    return mat
+
+
+def _grid_axis_centers(cfg: CFSCDConfig, n_bins: int) -> list:
+    """Meter-coordinate center of each grid cell along one axis, matching
+    features.py's ``(coord + grid_half_extent_m) // grid_cell_m`` binning.
+    """
+    return [(-cfg.grid_half_extent_m + (i + 0.5) * cfg.grid_cell_m) for i in range(n_bins)]
+
+
 def _ring_labels(cfg: CFSCDConfig) -> list:
     edges = cfg.ring_edges_m
     return [
@@ -181,7 +203,7 @@ def build_fingerprint_report(fp: FingerprintTable, cell_id: str, cfg: CFSCDConfi
             grid_hits.append((i, grid_row.get(f"grid_{i}_mean", np.nan), int(count), grid_row.get(f"grid_{i}_confidence", 0.0)))
     grid_hits.sort(key=lambda t: t[2], reverse=True)
     lines.append(f"  {len(grid_hits)}/{n_grid} o luoi co du lieu")
-    for i, mean, count, conf in grid_hits[:10]:
+    for i, mean, count, conf in grid_hits:
         lines.append(f"    grid_{i}: RSRP={mean:7.1f} dBm  n={count:4d}  do_tin_cay={conf:.2f}")
 
     return "\n".join(lines)
@@ -205,6 +227,7 @@ def fig_cell_coverage_report(
     if cell_id not in fp.ring_direction.index.get_level_values("cell_id"):
         raise KeyError(f"{cell_id} has no fingerprint - was it in the UE Report table passed to compute_fingerprints?")
     rd_row = fp.ring_direction.loc[cell_id].iloc[0]
+    grid_row = fp.grid.loc[cell_id].iloc[0]
     scalar_row = fp.scalar.loc[cell_id].iloc[0]
     n_samples = int(scalar_row["sample_count"])
 
@@ -218,14 +241,15 @@ def fig_cell_coverage_report(
 
     fig = make_subplots(
         rows=1,
-        cols=3,
-        specs=[[{"type": "xy"}, {"type": "polar"}, {"type": "xy"}]],
+        cols=4,
+        specs=[[{"type": "xy"}, {"type": "polar"}, {"type": "xy"}, {"type": "xy"}]],
         subplot_titles=(
             "Ring x Direction (luoi)",
             "Coverage rose (dang canh quat, do mo = do tin cay)",
             f"Diem do thuc te (n={n_samples})",
+            f"Grid Feature (o {cfg.grid_cell_m:.0f}m, Descartes)",
         ),
-        column_widths=[0.34, 0.34, 0.32],
+        column_widths=[0.27, 0.27, 0.24, 0.22],
     )
 
     _add_ring_direction_heatmap(fig, rd_row, cfg, row=1, col=1, coloraxis="coloraxis")
@@ -270,10 +294,39 @@ def fig_cell_coverage_report(
             col=3,
         )
 
+    grid_mean = _grid_matrix(grid_row, fp, "mean")
+    grid_count = _grid_matrix(grid_row, fp, "count")
+    grid_conf = _grid_matrix(grid_row, fp, "confidence")
+    gx_centers = _grid_axis_centers(cfg, fp.n_grid_x)
+    gy_centers = _grid_axis_centers(cfg, fp.n_grid_y)
+    fig.add_trace(
+        go.Heatmap(
+            z=grid_mean.T,
+            x=gx_centers,
+            y=gy_centers,
+            coloraxis="coloraxis",
+            customdata=np.stack([grid_count.T, grid_conf.T], axis=-1),
+            hovertemplate="dx=%{x:.0f}m, dy=%{y:.0f}m<br>RSRP=%{z:.1f} dBm<br>n=%{customdata[0]:.0f}, do_tin_cay=%{customdata[1]:.2f}<extra></extra>",
+            name="grid feature",
+        ),
+        row=1,
+        col=4,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[0], y=[0], mode="markers", marker=dict(size=10, color="black", symbol="star"),
+            showlegend=False, hoverinfo="skip",
+        ),
+        row=1,
+        col=4,
+    )
+
     fig.update_xaxes(title_text="Huong (do)", row=1, col=1)
     fig.update_yaxes(title_text="Vong ban kinh", row=1, col=1)
     fig.update_xaxes(title_text="Dong Tay (m)", row=1, col=3)
     fig.update_yaxes(title_text="Bac Nam (m)", row=1, col=3, scaleanchor="x3", scaleratio=1)
+    fig.update_xaxes(title_text="Dong Tay (m)", row=1, col=4)
+    fig.update_yaxes(title_text="Bac Nam (m)", row=1, col=4, scaleanchor="x4", scaleratio=1)
 
     # Zoom the rose to where the data actually is: the ring containing the
     # 97th percentile of samples, plus one ring of padding - a stray 1-2
@@ -294,7 +347,7 @@ def fig_cell_coverage_report(
         title=f"Cell {cell_id}: Coverage Fingerprint tu du lieu Mentor thuc te",
         template="plotly_white",
         height=560,
-        width=1650,
+        width=2050,
         coloraxis=dict(colorscale="RdYlGn", cmin=cmin, cmax=cmax, colorbar=dict(title="RSRP dBm", x=1.06)),
         polar=dict(
             radialaxis=dict(title="m", range=[0, max_r]),
